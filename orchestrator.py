@@ -36,12 +36,13 @@ agent: Optional[DesktopAgent] = None
 logger: Optional[ActionLogger] = None
 claude_client: Optional[ClaudeComputerClient] = None
 active_connections: List[WebSocket] = []
+coordinate_scale_factor: float = 1.0  # For scaling Claude's coordinates to actual screen size
 
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    global agent, logger, claude_client
+    global agent, logger, claude_client, coordinate_scale_factor
     
     print("Initializing services...")
     agent = DesktopAgent(log_dir="logs")
@@ -54,12 +55,33 @@ async def startup_event():
         api_key_preview = api_key[:20] + "..." if len(api_key) > 20 else api_key
         print(f"✓ Found API key: {api_key_preview}")
         try:
-            claude_client = ClaudeComputerClient(api_key=api_key)
-            # Update screen size
+            # Get logical screen size from agent
             screen_info = agent.get_screen_size()
-            claude_client.update_screen_size(screen_info["width"], screen_info["height"])
+            logical_width = screen_info['width']
+            logical_height = screen_info['height']
+            print(f"✓ Actual logical screen size: {logical_width}x{logical_height}")
+            
+            # Take a test screenshot to get Claude-optimized dimensions
+            # Screenshots are scaled to fit within 1280x800 (WXGA) as recommended by Claude docs
+            test_screenshot = agent.screenshot()
+            screenshot_width = test_screenshot['width']
+            screenshot_height = test_screenshot['height']
+            coordinate_scale_factor = test_screenshot['scale_factor']
+            
+            print(f"✓ Screenshots scaled to: {screenshot_width}x{screenshot_height} (fits in Claude's optimal 1280x800)")
+            print(f"✓ Scale factor: {coordinate_scale_factor:.3f} (screenshot/logical)")
+            
+            # IMPORTANT: Tell Claude the screen size MATCHES the screenshots we send!
+            # This keeps everything in the same coordinate space for accuracy
+            claude_client = ClaudeComputerClient(
+                api_key=api_key,
+                screen_width=screenshot_width,
+                screen_height=screenshot_height
+            )
+            print(f"✓ Claude tool config: display_width_px={screenshot_width}, display_height_px={screenshot_height}")
+            print(f"✓ Claude will return coordinates in {screenshot_width}x{screenshot_height} space")
+            print(f"✓ We'll scale coordinates UP to {logical_width}x{logical_height} for PyAutoGUI")
             logger.log_message("Claude client initialized successfully")
-            print(f"✓ Claude client initialized (screen: {screen_info['width']}x{screen_info['height']})")
         except Exception as e:
             import traceback
             logger.log_error(f"Failed to initialize Claude client: {e}")
@@ -142,9 +164,29 @@ async def execute_task(task_request: TaskRequest):
         screenshot_result = agent.screenshot()
         screenshot_base64 = screenshot_result["data"]
         
+        # Update coordinate scale factor for this session
+        global coordinate_scale_factor
+        coordinate_scale_factor = screenshot_result["scale_factor"]
+        
+        # Enhance task with macOS-specific instructions
+        macos_instructions = """
+Important macOS behaviors to remember:
+- If you accidentally open a menu or popup (like battery menu, focus menu, etc.), press Escape to close it before trying again
+- Clicking elsewhere while a menu is open will just close the menu, not open the new target
+- Menu bar clicks often open menus that must be closed with Escape first
+
+CRITICAL: Before clicking anything, ALWAYS:
+1. First use mouse_move to position the cursor where you want to click
+2. Take a screenshot to verify the cursor is in the correct position
+3. If the cursor position looks correct, proceed with the click
+4. If not correct, adjust the position and verify again before clicking
+This two-step approach (move → verify → click) prevents misclicks.
+"""
+        enhanced_task = f"{macos_instructions}\n\nTask: {task_request.task}"
+        
         # Send initial task to Claude
         response = claude_client.send_message(
-            task=task_request.task,
+            task=enhanced_task,
             screenshot_base64=screenshot_base64
         )
         
@@ -174,6 +216,13 @@ async def execute_task(task_request: TaskRequest):
                     tool_name = tool_use["name"]
                     tool_input = tool_use["input"]
                     
+                    # Debug: Show what Claude requested
+                    print(f"\n🤖 Claude tool use:")
+                    print(f"   Tool: {tool_name}")
+                    print(f"   Action: {tool_input.get('action', 'N/A')}")
+                    if "coordinate" in tool_input:
+                        print(f"   📍 Coordinates: {tool_input['coordinate']}")
+                    
                     logger.log_message(f"Executing tool: {tool_name}")
                     execution_log.append({
                         "type": "tool_use",
@@ -183,6 +232,36 @@ async def execute_task(task_request: TaskRequest):
                     
                     # Execute computer tool
                     if tool_name == "computer":
+                        action_type = tool_input.get("action")
+                        
+                        # COORDINATE SCALING: Claude returns coordinates in screenshot space (1231x800)
+                        # We need to scale UP to logical space (1512x982) for PyAutoGUI
+                        if "coordinate" in tool_input and coordinate_scale_factor != 1.0:
+                            claude_coords = tool_input["coordinate"]
+                            # Scale UP: divide by scale_factor (which is < 1.0)
+                            logical_x = int(claude_coords[0] / coordinate_scale_factor)
+                            logical_y = int(claude_coords[1] / coordinate_scale_factor)
+                            tool_input["coordinate"] = [logical_x, logical_y]
+                            print(f"   📐 Coordinate scaling: {claude_coords} (Claude space) → [{logical_x}, {logical_y}] (PyAutoGUI space, scale: {1/coordinate_scale_factor:.2f}x)")
+                        elif "coordinate" in tool_input:
+                            coords = tool_input["coordinate"]
+                            print(f"   📐 Coordinates (no scaling needed): {coords}")
+                        
+                        # Auto-recovery: Detect if Claude opened wrong menu and close it
+                        if action_type in ["left_click", "screenshot"] and response.get("text_responses"):
+                            text_response = " ".join(response["text_responses"]).lower()
+                            menu_mistake_keywords = [
+                                "opened a", "instead of", "instead", 
+                                "battery menu", "focus menu", "wrong",
+                                "not the right", "that opened"
+                            ]
+                            
+                            if any(keyword in text_response for keyword in menu_mistake_keywords):
+                                print("   🔧 Auto-recovery: Detected menu mistake, closing with Escape")
+                                agent.key_press("escape")
+                                import time
+                                time.sleep(0.3)  # Brief pause for menu to close
+                        
                         result = agent.execute_action(tool_input)
                         logger.log_action(tool_input, result)
                         
@@ -195,6 +274,9 @@ async def execute_task(task_request: TaskRequest):
                         
                         # Format result for Claude
                         if result.get("type") == "screenshot":
+                            # Update scale factor for this screenshot
+                            coordinate_scale_factor = result.get("scale_factor", 1.0)
+                            
                             # Send screenshot back to Claude
                             tool_results.append({
                                 "tool_use_id": tool_use["id"],

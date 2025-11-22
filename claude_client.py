@@ -23,7 +23,7 @@ class ClaudeComputerClient:
     Tool versions must match: computer_20250124, text_editor_20250124, bash_20250124
     """
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, screen_width: int = None, screen_height: int = None):
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError("ANTHROPIC_API_KEY must be set in environment or passed to constructor")
@@ -31,13 +31,19 @@ class ClaudeComputerClient:
         self.client = anthropic.Anthropic(api_key=self.api_key)
         self.messages: List[Dict[str, Any]] = []
         
+        # Get logical screen size if not provided
+        if screen_width is None or screen_height is None:
+            import pyautogui
+            screen_width, screen_height = pyautogui.size()
+            print(f"[ClaudeClient] Auto-detected logical screen size: {screen_width}x{screen_height}")
+        
         # Computer use tools (updated for computer-use-2025-01-24 beta)
         self.tools = [
             {
                 "type": "computer_20250124",
                 "name": "computer",
-                "display_width_px": 1920,
-                "display_height_px": 1080,
+                "display_width_px": screen_width,
+                "display_height_px": screen_height,
                 "display_number": 1,
             },
             {
@@ -49,6 +55,11 @@ class ClaudeComputerClient:
                 "name": "bash"
             }
         ]
+        
+        # Debug: Print tool configuration
+        print(f"[ClaudeClient] Tool configuration:")
+        print(f"  display_width_px: {self.tools[0]['display_width_px']}")
+        print(f"  display_height_px: {self.tools[0]['display_height_px']}")
     
     def update_screen_size(self, width: int, height: int):
         """Update the screen dimensions for the computer tool"""
@@ -149,11 +160,15 @@ class ClaudeComputerClient:
         
         for block in response.content:
             if block.type == "tool_use":
-                result["tool_uses"].append({
+                tool_data = {
                     "id": block.id,
                     "name": block.name,
                     "input": block.input
-                })
+                }
+                # Debug: Print coordinates from Claude
+                if "coordinate" in block.input:
+                    print(f"[ClaudeClient] Claude returned coordinates: {block.input['coordinate']} (Screen: {self.tools[0]['display_width_px']}x{self.tools[0]['display_height_px']})")
+                result["tool_uses"].append(tool_data)
             elif block.type == "text":
                 result["text_responses"].append(block.text)
         

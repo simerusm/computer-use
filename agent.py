@@ -27,6 +27,38 @@ class DesktopAgent:
     def screenshot(self) -> dict:
         """Take a screenshot and return as base64 encoded image"""
         screenshot = pyautogui.screenshot()
+
+        # RETINA FIX: Scale down to logical coordinates
+        # Get logical screen size (what PyAutoGUI uses)
+        logical_width, logical_height = pyautogui.size()
+        
+        print(f"📸 Screenshot: Physical={screenshot.size}, Logical=({logical_width}, {logical_height})")
+         
+        # If screenshot is larger than logical size, scale it down
+        if screenshot.size[0] > logical_width or screenshot.size[1] > logical_height:
+            # Resize to match logical coordinates (for Retina displays)
+            screenshot = screenshot.resize((logical_width, logical_height), Image.Resampling.LANCZOS)
+            print(f"   ✓ Scaled to logical coordinates: {logical_width}x{logical_height}")
+        
+        # CLAUDE OPTIMIZATION: Further scale to Claude's optimal resolution (≤1280×800)
+        # Claude performs best at WXGA resolution or below
+        MAX_WIDTH = 1280
+        MAX_HEIGHT = 800
+        
+        current_width, current_height = screenshot.size
+        
+        if current_width > MAX_WIDTH or current_height > MAX_HEIGHT:
+            # Calculate scale factor to fit within MAX dimensions while maintaining aspect ratio
+            scale_width = MAX_WIDTH / current_width
+            scale_height = MAX_HEIGHT / current_height
+            scale_factor = min(scale_width, scale_height)
+            
+            new_width = int(current_width * scale_factor)
+            new_height = int(current_height * scale_factor)
+            
+            screenshot = screenshot.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            print(f"   ✓ Scaled for Claude optimal performance: {new_width}x{new_height}")
+            print(f"   Scale factor: {scale_factor:.3f} (coordinates will be scaled back)")
         
         # Save screenshot to logs
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -38,8 +70,13 @@ class DesktopAgent:
         screenshot.save(buffered, format="PNG")
         img_base64 = base64.b64encode(buffered.getvalue()).decode()
         
-        # Get screen dimensions
+        # Get screen dimensions (after all scaling)
         width, height = screenshot.size
+        
+        # Calculate scale factor for coordinate conversion
+        # Claude will return coordinates in the scaled screenshot space
+        # We need to convert back to logical space for PyAutoGUI
+        scale_factor = width / logical_width  # Should be ≤1.0
         
         self.action_count += 1
         
@@ -48,6 +85,9 @@ class DesktopAgent:
             "data": img_base64,
             "width": width,
             "height": height,
+            "logical_width": logical_width,  # Original logical size
+            "logical_height": logical_height,
+            "scale_factor": scale_factor,  # For coordinate conversion
             "timestamp": timestamp,
             "path": str(screenshot_path)
         }
@@ -57,15 +97,19 @@ class DesktopAgent:
         try:
             # Validate coordinates
             screen_width, screen_height = pyautogui.size()
+            print(f"🖱️  Click at ({x}, {y}) - Screen bounds: {screen_width}x{screen_height}")
+            
             if not (0 <= x <= screen_width and 0 <= y <= screen_height):
+                print(f"   ❌ Out of bounds!")
                 return {
                     "type": "click",
                     "success": False,
                     "error": f"Coordinates ({x}, {y}) out of screen bounds ({screen_width}x{screen_height})"
                 }
             
-            # Perform click
+            # Perform click (NO SCALING - coordinates already in logical space)
             pyautogui.click(x, y, clicks=clicks, button=button)
+            print(f"   ✓ Clicked successfully")
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             self.action_count += 1
@@ -111,10 +155,25 @@ class DesktopAgent:
     def key_press(self, key: str) -> dict:
         """Press a specific key (e.g., 'enter', 'space', 'command')"""
         try:
-            pyautogui.press(key)
+            print(f"⌨️  Key press: {key}")
+            
+            # Handle key combinations (e.g., 'cmd+space', 'ctrl+c', 'command+space')
+            if '+' in key:
+                # Split the key combination and use hotkey
+                keys = key.split('+')
+                # Normalize 'cmd' to 'command' for consistency
+                keys = ['command' if k == 'cmd' else k for k in keys]
+                print(f"   Using hotkey: {keys}")
+                pyautogui.hotkey(*keys)
+            else:
+                # Single key press
+                print(f"   Using press: {key}")
+                pyautogui.press(key)
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             self.action_count += 1
+            
+            print(f"   ✓ Key press successful")
             
             return {
                 "type": "key_press",

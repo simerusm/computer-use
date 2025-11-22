@@ -39,17 +39,21 @@ async def run_notepad_example():
             # Determine OS and task
             os_name = platform.system()
             if os_name == "Darwin":  # macOS
-                task = "Open the magnifying glass icon (spotlight tab) in the upper bar of my computer to see spotlight. Then type in 'Notes' and open up the Notes application. Then create a new note with the word 'hello' in it"
+                task = """
+Open spotlight search using keyboard shortcut.
+Open the notes application.
+Create a new note and write the word 'hello'
+"""
             else:  # Windows or others
-                task = "Open Notepad and type 'hello' in it"
+                task = "Press the Windows key, type 'notepad', press Enter to open Notepad, then type 'hello' in it"
             
             print(f"Task: {task}")
             
             # Execute task via Claude
             task_response = await client.post(
                 f"{base_url}/task",
-                json={"task": task, "max_iterations": 15},
-                timeout=120.0
+                json={"task": task, "max_iterations": 25},
+                timeout=240.0
             )
             
             if task_response.status_code != 200:
