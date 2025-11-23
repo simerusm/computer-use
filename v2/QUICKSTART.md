@@ -79,14 +79,18 @@ The agent will:
 After completion:
 
 ```bash
-# View session log
-cat logs/session_*.jsonl | jq .
+# List all sessions (newest first)
+ls -lt logs/
 
-# View screenshots
-open logs/screenshot_*.png
+# View latest session log
+ls -t logs/ | head -1 | xargs -I {} cat logs/{}/session.jsonl | jq .
 
-# Latest session
-ls -t logs/session_*.jsonl | head -1 | xargs cat | jq .
+# View screenshots from latest session
+ls -t logs/ | head -1 | xargs -I {} open logs/{}/screenshot_*.png
+
+# Or view a specific session
+cat logs/session_20251122_143022/session.jsonl | jq .
+open logs/session_20251122_143022/screenshot_*.png
 ```
 
 ---

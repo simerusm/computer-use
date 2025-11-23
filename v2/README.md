@@ -20,8 +20,11 @@ v2/
 ├── agent.py         # Desktop interaction functions
 ├── logger.py        # Comprehensive logging
 ├── logs/            # Session logs and screenshots
-│   ├── session_YYYYMMDD_HHMMSS.jsonl  # Full session log
-│   └── screenshot_*.png                 # Screenshots taken
+│   └── session_YYYYMMDD_HHMMSS/  # Each session in its own folder
+│       ├── session.jsonl         # Full session log
+│       ├── screenshot_0.png      # Screenshots taken
+│       ├── screenshot_1.png
+│       └── screenshot_2.png
 ├── .env             # Your ANTHROPIC_API_KEY (not in repo)
 └── README.md        # This file
 ```
@@ -208,9 +211,13 @@ I need to open Spotlight search first using Cmd+Space...
 
 ### JSONL Session Log
 
-Each session creates: `logs/session_YYYYMMDD_HHMMSS.jsonl`
+Each session creates a folder: `logs/session_YYYYMMDD_HHMMSS/`
 
-**Example entries:**
+Inside each folder:
+- `session.jsonl` - Full event log
+- `screenshot_0.png`, `screenshot_1.png`, etc. - All screenshots
+
+**Example entries in session.jsonl:**
 
 ```json
 {"timestamp": "2025-11-22T14:30:20", "event_type": "session_start", "data": {...}}
@@ -224,14 +231,17 @@ Each session creates: `logs/session_YYYYMMDD_HHMMSS.jsonl`
 
 **Analyze with:**
 ```bash
-# Count tool uses
-cat logs/session_*.jsonl | grep tool_use | wc -l
+# Count tool uses in latest session
+cat logs/session_*/session.jsonl | grep tool_use | wc -l
 
-# Extract Claude's thinking
-cat logs/session_*.jsonl | jq -r 'select(.event_type=="claude_thinking") | .data.text_responses[]'
+# Extract Claude's thinking from latest session
+cat logs/session_*/session.jsonl | jq -r 'select(.event_type=="claude_thinking") | .data.text_responses[]'
 
-# Get all coordinates clicked
-cat logs/session_*.jsonl | jq -r 'select(.event_type=="tool_use" and .data.action=="left_click") | .data.tool_input.coordinate'
+# Get all coordinates clicked in latest session
+cat logs/session_*/session.jsonl | jq -r 'select(.event_type=="tool_use" and .data.action=="left_click") | .data.tool_input.coordinate'
+
+# List all sessions
+ls -lt logs/
 ```
 
 ---

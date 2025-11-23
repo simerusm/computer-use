@@ -46,9 +46,11 @@ v2/
 │       └── info()              # Print info
 │
 ├── logs/                    # 📂 Output directory
-│   ├── .gitkeep            # Keep directory in git
-│   ├── session_*.jsonl     # Full session logs
-│   └── screenshot_*.png    # All screenshots taken
+│   └── session_YYYYMMDD_HHMMSS/  # Each session in its own folder
+│       ├── session.jsonl         # Full session log
+│       ├── screenshot_0.png      # Screenshots (numbered)
+│       ├── screenshot_1.png
+│       └── screenshot_2.png
 │
 ├── .env                     # 🔐 Environment variables (not in git)
 │   └── ANTHROPIC_API_KEY=sk-...
@@ -101,13 +103,14 @@ v2/
             ↓                            ↓                            ↓
     ┌───────────────┐           ┌───────────────┐          ┌────────────────┐
     │  agent.py     │           │  logger.py    │          │  logs/         │
-    │               │           │               │          │                │
-    │ • screenshot  │           │ • JSONL log   │          │ • session_*.   │
-    │ • click       │◄──────────┤ • console     │─────────►│   jsonl        │
-    │ • type        │  actions  │   output      │  writes  │ • screenshot_* │
-    │ • key press   │           │ • formatting  │          │   .png         │
-    │ • coordinate  │           │               │          │                │
-    │   scaling     │           │               │          │                │
+    │               │           │               │          │  session_*/    │
+    │ • screenshot  │           │ • JSONL log   │          │                │
+    │ • click       │◄──────────┤ • console     │─────────►│ • session.     │
+    │ • type        │  actions  │   output      │  writes  │   jsonl        │
+    │ • key press   │           │ • formatting  │          │ • screenshot_  │
+    │ • coordinate  │           │ • session dir │          │   0.png        │
+    │   scaling     │           │               │          │ • screenshot_  │
+    │               │           │               │          │   1.png        │
     └───────────────┘           └───────────────┘          └────────────────┘
             │
             ↓
@@ -310,14 +313,22 @@ Exit
    [Agent]   Scale factors: X=..., Y=...
    ```
 
-2. Screenshots in `logs/`:
+2. Screenshots in session folder:
    ```bash
-   open logs/screenshot_*.png
+   # Latest session
+   ls -t logs/ | head -1 | xargs -I {} open logs/{}/screenshot_*.png
+   
+   # Specific session
+   open logs/session_20251122_143022/screenshot_*.png
    ```
 
 3. Tool use events in session log:
    ```bash
-   cat logs/session_*.jsonl | jq 'select(.event_type=="tool_use")'
+   # Latest session
+   ls -t logs/ | head -1 | xargs -I {} cat logs/{}/session.jsonl | jq 'select(.event_type=="tool_use")'
+   
+   # Specific session
+   cat logs/session_20251122_143022/session.jsonl | jq 'select(.event_type=="tool_use")'
    ```
 
 ### To Debug Claude's Thinking
@@ -333,7 +344,11 @@ Exit
 
 2. Session log:
    ```bash
-   cat logs/session_*.jsonl | jq -r 'select(.event_type=="claude_thinking") | .data.text_responses[]'
+   # Latest session
+   ls -t logs/ | head -1 | xargs -I {} cat logs/{}/session.jsonl | jq -r 'select(.event_type=="claude_thinking") | .data.text_responses[]'
+   
+   # Specific session
+   cat logs/session_20251122_143022/session.jsonl | jq -r 'select(.event_type=="claude_thinking") | .data.text_responses[]'
    ```
 
 ### To Debug Action Failures
@@ -347,12 +362,14 @@ Exit
 
 2. Tool results in session log:
    ```bash
-   cat logs/session_*.jsonl | jq 'select(.event_type=="tool_result")'
+   # Latest session
+   ls -t logs/ | head -1 | xargs -I {} cat logs/{}/session.jsonl | jq 'select(.event_type=="tool_result")'
    ```
 
 3. Error events:
    ```bash
-   cat logs/session_*.jsonl | jq 'select(.event_type=="api_error")'
+   # Latest session
+   ls -t logs/ | head -1 | xargs -I {} cat logs/{}/session.jsonl | jq 'select(.event_type=="api_error")'
    ```
 
 ---

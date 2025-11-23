@@ -15,19 +15,29 @@ class SessionLogger:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
         
-        # Create session log file
+        # Create session-specific subdirectory
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.session_file = self.log_dir / f"session_{timestamp}.jsonl"
+        self.session_dir = self.log_dir / f"session_{timestamp}"
+        self.session_dir.mkdir(exist_ok=True)
+        
+        # Create session log file inside the session directory
+        self.session_file = self.session_dir / "session.jsonl"
         self.action_count = 0
         self.iteration_count = 0
         
+        print(f"[Logger] Session directory: {self.session_dir}")
         print(f"[Logger] Session log: {self.session_file}")
         
         # Log session start
         self.log_event("session_start", {
             "timestamp": datetime.now().isoformat(),
+            "session_dir": str(self.session_dir),
             "session_file": str(self.session_file)
         })
+    
+    def get_session_dir(self) -> Path:
+        """Get the session directory path"""
+        return self.session_dir
     
     def log_event(self, event_type: str, data: Dict[str, Any]):
         """Log an event to the session file"""
@@ -133,7 +143,9 @@ class SessionLogger:
         print(f"{'='*60}")
         print(f"Stop reason: {stop_reason}")
         print(f"Total iterations: {total_iterations}")
-        print(f"Session log: {self.session_file}")
+        print(f"Session directory: {self.session_dir}")
+        print(f"  └─ session.jsonl")
+        print(f"  └─ screenshot_*.png")
         print(f"{'='*60}\n")
         
         self.log_event("session_complete", {

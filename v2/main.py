@@ -31,8 +31,13 @@ class ComputerUseAgent:
             exit(1)
         
         self.client = anthropic.Anthropic(api_key=api_key)
-        self.agent = DesktopAgent(target_width, target_height, log_dir="logs")
+        
+        # Create logger first (it creates the session directory)
         self.logger = SessionLogger(log_dir="logs")
+        
+        # Create agent with the session directory from logger
+        session_dir = self.logger.get_session_dir()
+        self.agent = DesktopAgent(target_width, target_height, session_dir=session_dir)
         
         self.target_width = target_width
         self.target_height = target_height

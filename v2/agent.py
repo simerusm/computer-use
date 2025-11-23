@@ -14,19 +14,19 @@ from pathlib import Path
 class DesktopAgent:
     """Agent that can interact with the desktop environment"""
     
-    def __init__(self, target_width: int = 1024, target_height: int = 768, log_dir: str = "logs"):
+    def __init__(self, target_width: int = 1024, target_height: int = 768, session_dir: Path = None):
         """
         Initialize the desktop agent
         
         Args:
             target_width: Width to resize screenshots to for Claude
             target_height: Height to resize screenshots to for Claude
-            log_dir: Directory to save screenshot logs
+            session_dir: Directory to save screenshots (if None, creates a temp logs dir)
         """
         self.target_width = target_width
         self.target_height = target_height
-        self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(exist_ok=True)
+        self.session_dir = session_dir if session_dir else Path("logs")
+        self.session_dir.mkdir(parents=True, exist_ok=True)
         self.action_count = 0
         
         # Safety: enable failsafe (move mouse to corner to abort)
@@ -35,7 +35,7 @@ class DesktopAgent:
         
         print(f"[Agent] Initialized with target resolution: {target_width}x{target_height}")
         print(f"[Agent] Screen size: {self.get_screen_size()}")
-        print(f"[Agent] Logs directory: {self.log_dir}")
+        print(f"[Agent] Session directory: {self.session_dir}")
     
     def get_screen_size(self) -> Tuple[int, int]:
         """Get the current screen size"""
@@ -88,11 +88,10 @@ class DesktopAgent:
             screenshot_resized = screenshot_resized.convert('RGB')
             print(f"[Agent]   Converted RGBA → RGB")
         
-        # Save to logs
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = self.log_dir / f"screenshot_{timestamp}_{self.action_count}.png"
+        # Save to session directory
+        screenshot_path = self.session_dir / f"screenshot_{self.action_count}.png"
         screenshot_resized.save(screenshot_path)
-        print(f"[Agent]   Saved to: {screenshot_path.name}")
+        print(f"[Agent]   Saved to: {screenshot_path.relative_to(screenshot_path.parent.parent)}")
         
         # Convert to base64 JPEG
         buffered = BytesIO()
