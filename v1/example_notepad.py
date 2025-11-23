@@ -40,20 +40,81 @@ async def run_notepad_example():
             os_name = platform.system()
             if os_name == "Darwin":  # macOS
                 task = """
-Open spotlight search using keyboard shortcut.
-Open the notes application.
-Create a new note and write the word 'hello'
+GOAL: Open the Google Sheets spreadsheet called "hello" in Google Drive and write the number 1 in cell A1.
+
+APPROACH: Browser-based workflow with careful focus management and wait times for page loads.
+
+STEPS:
+
+1. Open Google Chrome browser using Spotlight
+   - Press Cmd+Space to open Spotlight
+   - Type exactly: Google
+   - Press Enter to launch Google
+   - Take a screenshot to verify Google window opened and is active
+
+2. Navigate to Google Drive
+   - Press Cmd+L to focus the address bar (cursor should appear in address bar)
+   - Type exactly: drive.google.com
+   - Press Enter to navigate
+   - Wait for page to load (you'll see Google Drive interface or login page)
+   - Take a screenshot to verify page loaded
+
+3. Handle login if needed
+   - If you see a login page, you may need to click "Sign in" or use saved credentials
+   - If already logged in, you should see the Google Drive file list
+   - Take a screenshot to confirm you're in Google Drive
+
+4. Find the spreadsheet called "hello"
+   - Look for a file named "hello" in the file list (it might be a spreadsheet icon)
+   - Option A: If visible, click on the file named "hello"
+   - Option B: If not visible, use Cmd+F to search, type "hello", then click the result
+   - Take a screenshot to verify you found the file
+
+5. Open the spreadsheet
+   - Double-click on "hello" or click once then press Enter
+   - Wait for Google Sheets to load (you'll see the spreadsheet grid)
+   - Take a screenshot to verify the spreadsheet is open
+
+6. Click on cell A1
+   - Look for cell A1 (top-left cell of the grid, column A, row 1)
+   - Click on cell A1
+   - Verify the cell is selected (it will have a blue border or highlight)
+   - Take a screenshot to confirm A1 is selected
+
+7. Type the number 1
+   - Type: 1
+   - Press Enter to confirm the entry
+   - Verify the number 1 appears in cell A1
+   - Take a screenshot to confirm
+
+SUCCESS CRITERIA: 
+- Google is open with Google Sheets showing
+- The spreadsheet "hello" is open
+- Cell A1 contains the number 1
+
+IMPORTANT NOTES:
+- Allow time for web pages to load between steps
+- If Google Drive requires login, you may need to enter credentials
+- If you can't find the "hello" spreadsheet, it may not exist yet
+- Web pages may take 3-5 seconds to load - be patient
+- If Google opens a "Start Page" or previous session, that's okay, just navigate to drive.google.com
+
+RECOVERY STRATEGIES:
+- If login is required but credentials aren't saved, you may need to stop and inform the user
+- If the spreadsheet doesn't exist, you could create a new one, but that's beyond the current task
+- If page doesn't load, try refreshing with Cmd+R
 """
             else:  # Windows or others
                 task = "Press the Windows key, type 'notepad', press Enter to open Notepad, then type 'hello' in it"
             
-            print(f"Task: {task}")
+            print(f"Task:\n{task}\n")
             
-            # Execute task via Claude
+            # Execute task via Claude (increased iterations for complex tasks)
+            # Browser-based tasks need more iterations due to page loads and navigation
             task_response = await client.post(
                 f"{base_url}/task",
-                json={"task": task, "max_iterations": 25},
-                timeout=240.0
+                json={"task": task, "max_iterations": 50},
+                timeout=600.0  # 10 minutes for complex web workflows
             )
             
             if task_response.status_code != 200:

@@ -1,0 +1,10 @@
+# Anthropic Claude API
+anthropic>=0.39.0
+
+# Desktop automation
+pyautogui>=0.9.54
+pillow>=10.0.0
+
+# Environment configuration
+python-dotenv>=1.0.0
+

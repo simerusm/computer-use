@@ -36,13 +36,50 @@ agent: Optional[DesktopAgent] = None
 logger: Optional[ActionLogger] = None
 claude_client: Optional[ClaudeComputerClient] = None
 active_connections: List[WebSocket] = []
-coordinate_scale_factor: float = 1.0  # For scaling Claude's coordinates to actual screen size
+claude_screen_width: int = 1231  # Screenshot width sent to Claude (will be set at startup)
+claude_screen_height: int = 800  # Screenshot height sent to Claude (will be set at startup)
+
+
+def map_coords_from_claude(x_c: int, y_c: int, claude_w: int, claude_h: int, logical_w: int, logical_h: int) -> tuple:
+    """
+    Defensively map coordinates from Claude space to PyAutoGUI logical space.
+    
+    Args:
+        x_c, y_c: Coordinates from Claude
+        claude_w, claude_h: Screenshot dimensions Claude sees
+        logical_w, logical_h: Actual logical screen dimensions
+    
+    Returns:
+        (x_logical, y_logical): Clamped and scaled coordinates for PyAutoGUI
+    """
+    # 1) Clamp to Claude/screenshot bounds FIRST (defensive)
+    x_c_clamped = max(0, min(x_c, claude_w - 1))
+    y_c_clamped = max(0, min(y_c, claude_h - 1))
+    
+    if x_c != x_c_clamped or y_c != y_c_clamped:
+        print(f"   ⚠️  CLAMPED Claude coords: [{x_c}, {y_c}] → [{x_c_clamped}, {y_c_clamped}] (Claude bounds: {claude_w}x{claude_h})")
+    
+    # 2) Scale up to logical space
+    scale_x = logical_w / claude_w
+    scale_y = logical_h / claude_h
+    
+    x_l = int(round(x_c_clamped * scale_x))
+    y_l = int(round(y_c_clamped * scale_y))
+    
+    # 3) Clamp to logical screen bounds (just in case)
+    x_l_clamped = max(0, min(x_l, logical_w - 1))
+    y_l_clamped = max(0, min(y_l, logical_h - 1))
+    
+    if x_l != x_l_clamped or y_l != y_l_clamped:
+        print(f"   ⚠️  CLAMPED logical coords: [{x_l}, {y_l}] → [{x_l_clamped}, {y_l_clamped}] (Logical bounds: {logical_w}x{logical_h})")
+    
+    return x_l_clamped, y_l_clamped
 
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    global agent, logger, claude_client, coordinate_scale_factor
+    global agent, logger, claude_client, claude_screen_width, claude_screen_height
     
     print("Initializing services...")
     agent = DesktopAgent(log_dir="logs")
@@ -63,13 +100,21 @@ async def startup_event():
             
             # Take a test screenshot to get Claude-optimized dimensions
             # Screenshots are scaled to fit within 1280x800 (WXGA) as recommended by Claude docs
+            # Single resize from physical → Claude-optimal (no intermediate steps)
             test_screenshot = agent.screenshot()
             screenshot_width = test_screenshot['width']
             screenshot_height = test_screenshot['height']
-            coordinate_scale_factor = test_screenshot['scale_factor']
             
-            print(f"✓ Screenshots scaled to: {screenshot_width}x{screenshot_height} (fits in Claude's optimal 1280x800)")
-            print(f"✓ Scale factor: {coordinate_scale_factor:.3f} (screenshot/logical)")
+            # Store globally for coordinate mapping
+            claude_screen_width = screenshot_width
+            claude_screen_height = screenshot_height
+            
+            print(f"✓ Screenshots will be: {screenshot_width}x{screenshot_height}")
+            print(f"   (Fits within Claude's optimal 1280×800, aspect ratio maintained)")
+            print(f"✓ Logical screen: {logical_width}x{logical_height}")
+            print(f"✓ Coordinate mapping: Claude [{screenshot_width}×{screenshot_height}] → PyAutoGUI [{logical_width}×{logical_height}]")
+            print(f"✓ Scale factors: X={logical_width/screenshot_width:.6f}, Y={logical_height/screenshot_height:.6f}")
+            print(f"✓ Aspect ratios: {logical_width/logical_height:.4f} (logical) vs {screenshot_width/screenshot_height:.4f} (screenshot)")
             
             # IMPORTANT: Tell Claude the screen size MATCHES the screenshots we send!
             # This keeps everything in the same coordinate space for accuracy
@@ -81,6 +126,7 @@ async def startup_event():
             print(f"✓ Claude tool config: display_width_px={screenshot_width}, display_height_px={screenshot_height}")
             print(f"✓ Claude will return coordinates in {screenshot_width}x{screenshot_height} space")
             print(f"✓ We'll scale coordinates UP to {logical_width}x{logical_height} for PyAutoGUI")
+            print(f"✓ Coordinate clamping: ENABLED (defensive against out-of-bounds)")
             logger.log_message("Claude client initialized successfully")
         except Exception as e:
             import traceback
@@ -164,23 +210,53 @@ async def execute_task(task_request: TaskRequest):
         screenshot_result = agent.screenshot()
         screenshot_base64 = screenshot_result["data"]
         
-        # Update coordinate scale factor for this session
-        global coordinate_scale_factor
-        coordinate_scale_factor = screenshot_result["scale_factor"]
-        
         # Enhance task with macOS-specific instructions
         macos_instructions = """
-Important macOS behaviors to remember:
-- If you accidentally open a menu or popup (like battery menu, focus menu, etc.), press Escape to close it before trying again
-- Clicking elsewhere while a menu is open will just close the menu, not open the new target
-- Menu bar clicks often open menus that must be closed with Escape first
+You are an expert macOS operator controlling the user’s computer through a limited set of tools:
+- You can take screenshots of the screen.
+- You can move and click the mouse.
+- You can press keyboard keys and type text.
 
-CRITICAL: Before clicking anything, ALWAYS:
-1. First use mouse_move to position the cursor where you want to click
-2. Take a screenshot to verify the cursor is in the correct position
-3. If the cursor position looks correct, proceed with the click
-4. If not correct, adjust the position and verify again before clicking
-This two-step approach (move → verify → click) prevents misclicks.
+General rules:
+- The OS is macOS with Spotlight search (Cmd+Space) and standard apps like Dictionary.
+- Always work in SMALL, REASONED STEPS: plan briefly, then take one action, then re-check the screen.
+- After each action, TAKE A NEW SCREENSHOT and verify that the expected change really happened before continuing.
+- If the target app is not visible or focused, bring it to the front using macOS conventions (Cmd+Tab, Dock, or Spotlight).
+- Never keep typing into Spotlight or Launchpad if the goal is to operate inside an app’s own UI.
+- If you lose the app (it moves to the background), use Cmd+Tab or Spotlight again to refocus it.
+
+Goal handling:
+- For any task, extract a short step-by-step plan first (mentally or explicitly in text), then execute it.
+- Only stop when the goal is actually achieved on screen (e.g., the Dictionary window is open and the requested word is visible in the search result).
+
+Safety:
+- Prefer reliable, minimal actions over "fancy" ones.
+- If something doesn't work as expected (e.g. searching in Spotlight shows no result), STOP, re-check the screen, and adjust the plan instead of repeating the same failing action.
+
+CRITICAL COORDINATE CONSTRAINTS:
+- The screenshot resolution you see is {screenshot_result['width']}x{screenshot_result['height']} pixels.
+- ALL mouse coordinates you output MUST satisfy:
+  * 0 <= x < {screenshot_result['width']}
+  * 0 <= y < {screenshot_result['height']}
+- NEVER propose coordinates outside this range.
+- If you see an element near the edge, use coordinates like (width-10, y) or (x, height-10), never exceed the bounds.
+
+CRITICAL APP CONTEXT AWARENESS:
+- ONLY interact with Google Drive when it's open in a REAL web browser tab (e.g., Chrome showing drive.google.com).
+- IGNORE any "Google Drive" panels, sidebars, or file trees inside code editors (VS Code, Cursor, etc.) - these are NOT real browser tabs.
+- If you see a coding environment with file listings and a Google Drive sidebar:
+  * DO NOT click files there - they won't open Google Sheets
+  * Instead, use Cmd+Tab or click the Chrome icon to switch to the actual browser
+  * Verify you're in Chrome with drive.google.com in the address bar
+- Before clicking any file in Drive, verify:
+  * You're in a browser window (Chrome/Safari)
+  * The URL bar shows drive.google.com or docs.google.com
+  * You see the full Google Drive web interface, not a sidebar
+
+COORDINATE SANITY CHECK:
+- The dock is at the BOTTOM of the screen (y ≈ {screenshot_result['height']} - 50).
+- If you're trying to click a file in Google Drive's file list, it should be in the MIDDLE area (y ≈ 300-600).
+- If all your clicks are landing at y > {screenshot_result['height'] - 100}, you're hitting the dock - STOP and recalibrate.
 """
         enhanced_task = f"{macos_instructions}\n\nTask: {task_request.task}"
         
@@ -216,12 +292,16 @@ This two-step approach (move → verify → click) prevents misclicks.
                     tool_name = tool_use["name"]
                     tool_input = tool_use["input"]
                     
+                    # Debug: Log RAW tool_use block (for debugging coordinate issues)
+                    print(f"\n🔍 RAW tool_use: {tool_use}")
+                    
                     # Debug: Show what Claude requested
                     print(f"\n🤖 Claude tool use:")
                     print(f"   Tool: {tool_name}")
                     print(f"   Action: {tool_input.get('action', 'N/A')}")
                     if "coordinate" in tool_input:
-                        print(f"   📍 Coordinates: {tool_input['coordinate']}")
+                        print(f"   📍 RAW Coordinates from Claude: {tool_input['coordinate']}")
+                        print(f"   📍 Claude screen bounds: {claude_screen_width}x{claude_screen_height}")
                     
                     logger.log_message(f"Executing tool: {tool_name}")
                     execution_log.append({
@@ -234,18 +314,38 @@ This two-step approach (move → verify → click) prevents misclicks.
                     if tool_name == "computer":
                         action_type = tool_input.get("action")
                         
-                        # COORDINATE SCALING: Claude returns coordinates in screenshot space (1231x800)
-                        # We need to scale UP to logical space (1512x982) for PyAutoGUI
-                        if "coordinate" in tool_input and coordinate_scale_factor != 1.0:
+                        # DEFENSIVE COORDINATE MAPPING: Clamp and scale coordinates
+                        # Claude returns coords in screenshot space, we scale to PyAutoGUI logical space
+                        if "coordinate" in tool_input:
                             claude_coords = tool_input["coordinate"]
-                            # Scale UP: divide by scale_factor (which is < 1.0)
-                            logical_x = int(claude_coords[0] / coordinate_scale_factor)
-                            logical_y = int(claude_coords[1] / coordinate_scale_factor)
+                            
+                            # Get current logical screen size
+                            import pyautogui
+                            logical_w, logical_h = pyautogui.size()
+                            
+                            # Use defensive mapping with clamping
+                            logical_x, logical_y = map_coords_from_claude(
+                                claude_coords[0], claude_coords[1],
+                                claude_screen_width, claude_screen_height,
+                                logical_w, logical_h
+                            )
+                            
                             tool_input["coordinate"] = [logical_x, logical_y]
-                            print(f"   📐 Coordinate scaling: {claude_coords} (Claude space) → [{logical_x}, {logical_y}] (PyAutoGUI space, scale: {1/coordinate_scale_factor:.2f}x)")
-                        elif "coordinate" in tool_input:
-                            coords = tool_input["coordinate"]
-                            print(f"   📐 Coordinates (no scaling needed): {coords}")
+                            
+                            # Detailed coordinate analysis
+                            claude_y_percent = (claude_coords[1] / claude_screen_height) * 100
+                            logical_y_percent = (logical_y / logical_h) * 100
+                            
+                            print(f"   ✅ Mapped coordinates: {claude_coords} (Claude {claude_screen_width}x{claude_screen_height}) → [{logical_x}, {logical_y}] (PyAutoGUI {logical_w}x{logical_h})")
+                            print(f"      📊 Y-position analysis:")
+                            print(f"         - Claude Y: {claude_coords[1]}/{claude_screen_height} = {claude_y_percent:.1f}% from top")
+                            print(f"         - Logical Y: {logical_y}/{logical_h} = {logical_y_percent:.1f}% from top")
+                            
+                            # Warn if clicking too close to dock
+                            if logical_y > logical_h - 100:
+                                print(f"      ⚠️  WARNING: Y={logical_y} is near bottom of screen ({logical_h})")
+                                print(f"         This might hit the DOCK instead of your target!")
+                                print(f"         Expected file clicks: y ≈ 300-600")
                         
                         # Auto-recovery: Detect if Claude opened wrong menu and close it
                         if action_type in ["left_click", "screenshot"] and response.get("text_responses"):
@@ -274,9 +374,6 @@ This two-step approach (move → verify → click) prevents misclicks.
                         
                         # Format result for Claude
                         if result.get("type") == "screenshot":
-                            # Update scale factor for this screenshot
-                            coordinate_scale_factor = result.get("scale_factor", 1.0)
-                            
                             # Send screenshot back to Claude
                             tool_results.append({
                                 "tool_use_id": tool_use["id"],

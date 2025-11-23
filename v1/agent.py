@@ -15,79 +15,97 @@ from pathlib import Path
 class DesktopAgent:
     """Agent that can interact with the desktop environment"""
     
-    def __init__(self, log_dir: str = "logs"):
+    def __init__(self, log_dir: str = "logs", diagnostic_mode: bool = False):
+        """Initialize desktop agent
+        
+        Args:
+            diagnostic_mode: If True, skip Claude optimization (full-res screenshots for debugging)
+        """
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
         self.action_count = 0
+        self.diagnostic_mode = diagnostic_mode
         
         # Safety: enable failsafe (move mouse to corner to abort)
         pyautogui.FAILSAFE = True
         pyautogui.PAUSE = 0.5  # Add small delay between actions
         
+        if diagnostic_mode:
+            print("⚠️  DIAGNOSTIC MODE: Sending full-resolution screenshots (no Claude optimization)")
+        
     def screenshot(self) -> dict:
         """Take a screenshot and return as base64 encoded image"""
         screenshot = pyautogui.screenshot()
-
-        # RETINA FIX: Scale down to logical coordinates
-        # Get logical screen size (what PyAutoGUI uses)
+        
+        # Get logical screen size (what PyAutoGUI uses for coordinates)
         logical_width, logical_height = pyautogui.size()
         
         print(f"📸 Screenshot: Physical={screenshot.size}, Logical=({logical_width}, {logical_height})")
-         
-        # If screenshot is larger than logical size, scale it down
-        if screenshot.size[0] > logical_width or screenshot.size[1] > logical_height:
-            # Resize to match logical coordinates (for Retina displays)
-            screenshot = screenshot.resize((logical_width, logical_height), Image.Resampling.LANCZOS)
-            print(f"   ✓ Scaled to logical coordinates: {logical_width}x{logical_height}")
         
-        # CLAUDE OPTIMIZATION: Further scale to Claude's optimal resolution (≤1280×800)
-        # Claude performs best at WXGA resolution or below
-        MAX_WIDTH = 1280
-        MAX_HEIGHT = 800
-        
-        current_width, current_height = screenshot.size
-        
-        if current_width > MAX_WIDTH or current_height > MAX_HEIGHT:
-            # Calculate scale factor to fit within MAX dimensions while maintaining aspect ratio
-            scale_width = MAX_WIDTH / current_width
-            scale_height = MAX_HEIGHT / current_height
-            scale_factor = min(scale_width, scale_height)
+        # SINGLE RESIZE: Go directly from physical screenshot to Claude-optimal size
+        # This avoids compounding rounding errors from multiple resizes
+        # Claude performs best at ≤1280×800 (WXGA) per documentation
+        if not self.diagnostic_mode:
+            MAX_WIDTH = 1280
+            MAX_HEIGHT = 800
             
-            new_width = int(current_width * scale_factor)
-            new_height = int(current_height * scale_factor)
+            # Calculate scale factor based on LOGICAL dimensions (not physical screenshot size)
+            # This ensures coordinate mapping stays accurate
+            scale_width = MAX_WIDTH / logical_width
+            scale_height = MAX_HEIGHT / logical_height
+            scale_down = min(scale_width, scale_height)  # Use smaller to fit both constraints
             
+            # Calculate target dimensions
+            new_width = int(round(logical_width * scale_down))
+            new_height = int(round(logical_height * scale_down))
+            
+            # Verify aspect ratio is maintained
+            original_aspect = logical_width / logical_height
+            new_aspect = new_width / new_height
+            aspect_diff = abs(original_aspect - new_aspect)
+            
+            # ONE resize from physical to target (no intermediate step)
             screenshot = screenshot.resize((new_width, new_height), Image.Resampling.LANCZOS)
-            print(f"   ✓ Scaled for Claude optimal performance: {new_width}x{new_height}")
-            print(f"   Scale factor: {scale_factor:.3f} (coordinates will be scaled back)")
+            
+            print(f"   ✓ Single resize: Physical {screenshot.size} → Claude-optimal {new_width}×{new_height}")
+            print(f"      (Based on logical {logical_width}×{logical_height}, fits within {MAX_WIDTH}×{MAX_HEIGHT})")
+            print(f"      Scale down: {scale_down:.6f}")
+            print(f"      Aspect ratio: {original_aspect:.4f} → {new_aspect:.4f} (diff: {aspect_diff:.6f})")
+            
+            # Sanity check
+            assert new_width <= MAX_WIDTH and new_height <= MAX_HEIGHT, f"Scaled size {new_width}×{new_height} exceeds max {MAX_WIDTH}×{MAX_HEIGHT}"
+        else:
+            print(f"   ⚠️  DIAGNOSTIC: Skipping optimization, sending full {screenshot.size[0]}x{screenshot.size[1]}")
         
         # Save screenshot to logs
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         screenshot_path = self.log_dir / f"screenshot_{timestamp}_{self.action_count}.png"
         screenshot.save(screenshot_path)
         
+        # Get final screenshot dimensions
+        screenshot_width, screenshot_height = screenshot.size
+        
+        # DEBUG: Verify screenshot represents full screen
+        print(f"   🔍 Screenshot verification:")
+        print(f"      - Represents full desktop: {logical_width}x{logical_height}")
+        print(f"      - Scaled to Claude size: {screenshot_width}x{screenshot_height}")
+        print(f"      - Coordinate mapping: Claude [{screenshot_width}×{screenshot_height}] → PyAutoGUI [{logical_width}×{logical_height}]")
+        print(f"      - Saved to: {screenshot_path.name}")
+        
         # Convert to base64
         buffered = BytesIO()
         screenshot.save(buffered, format="PNG")
         img_base64 = base64.b64encode(buffered.getvalue()).decode()
-        
-        # Get screen dimensions (after all scaling)
-        width, height = screenshot.size
-        
-        # Calculate scale factor for coordinate conversion
-        # Claude will return coordinates in the scaled screenshot space
-        # We need to convert back to logical space for PyAutoGUI
-        scale_factor = width / logical_width  # Should be ≤1.0
         
         self.action_count += 1
         
         return {
             "type": "screenshot",
             "data": img_base64,
-            "width": width,
-            "height": height,
-            "logical_width": logical_width,  # Original logical size
+            "width": screenshot_width,
+            "height": screenshot_height,
+            "logical_width": logical_width,  # Original logical size for PyAutoGUI
             "logical_height": logical_height,
-            "scale_factor": scale_factor,  # For coordinate conversion
             "timestamp": timestamp,
             "path": str(screenshot_path)
         }

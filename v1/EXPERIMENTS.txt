@@ -1,0 +1,323 @@
+Desktop Agent Experiment Tasks
+================================
+
+Instructions:
+- Copy one task at a time and paste it into example_notepad.py where the task string is defined
+- Observe Claude's behavior, reasoning, and success rate
+- Note any interesting patterns or failures
+- Rate: ✓ (Success), ~ (Partial), ✗ (Failed)
+
+================================
+CATEGORY 1: BASIC KEYBOARD SHORTCUTS
+================================
+
+Task 1A: Screenshot
+---
+Open spotlight search using keyboard shortcut. Take a screenshot by pressing Cmd+Shift+3.
+---
+Expected: Should hear camera shutter sound
+Difficulty: ★☆☆☆☆
+
+Task 1B: Mission Control
+---
+Open Mission Control by pressing the keyboard shortcut Control+Up Arrow. Then close it by pressing Escape.
+---
+Expected: Should see all windows/desktops overview
+Difficulty: ★☆☆☆☆
+
+Task 1C: Lock Screen
+---
+Open spotlight and type "lock". Press Enter to lock the screen.
+---
+Expected: Screen should lock (you'll need to unlock after!)
+Difficulty: ★☆☆☆☆
+
+================================
+CATEGORY 2: FILE OPERATIONS
+================================
+
+Task 2A: Create Text File in Finder
+---
+Open Finder using Cmd+Space and typing "Finder". Press Cmd+N to create a new Finder window. Then press Cmd+Shift+N to create a new folder. Name it "test_folder".
+---
+Expected: New folder created in current location
+Difficulty: ★★☆☆☆
+
+Task 2B: Open Downloads Folder
+---
+Open spotlight search. Open Finder. Then press Cmd+Shift+L to go to the Downloads folder.
+---
+Expected: Downloads folder opens
+Difficulty: ★★☆☆☆
+
+Task 2C: Search for File
+---
+Open Finder. Press Cmd+F to search. Type "screenshot" in the search field to find screenshot files.
+---
+Expected: Search results show screenshots
+Difficulty: ★★☆☆☆
+
+================================
+CATEGORY 3: TEXT EDITING
+================================
+
+Task 3A: TextEdit Formatting
+---
+Open TextEdit application. Type "Hello World". Select all text using Cmd+A. Make it bold using Cmd+B.
+---
+Expected: Bold "Hello World" text
+Difficulty: ★★☆☆☆
+
+Task 3B: Multi-line Text
+---
+Open Notes. Create a new note. Type the following on separate lines:
+Line 1: Apple
+Line 2: Banana
+Line 3: Cherry
+---
+Expected: Three lines of fruit names
+Difficulty: ★★☆☆☆
+
+Task 3C: Copy Paste
+---
+Open Notes. Type "Copy this text". Select all the text. Copy it. Press Enter to go to new line. Paste it.
+---
+Expected: "Copy this text" appears twice
+Difficulty: ★★☆☆☆
+
+================================
+CATEGORY 4: CALCULATOR OPERATIONS
+================================
+
+Task 4A: Simple Addition
+---
+Open Calculator. Calculate 7+8 using button clicks. Press equals to see result.
+---
+Expected: Result should be 15
+Difficulty: ★★★☆☆
+
+Task 4B: Multi-step Calculation
+---
+Open Calculator. Calculate (5+3)*2 by clicking buttons in sequence: 5, +, 3, =, then ×, 2, =.
+---
+Expected: Result should be 16
+Difficulty: ★★★☆☆
+
+Task 4C: Clear and Calculate
+---
+Open Calculator. Click on any number. Click the C button to clear. Then calculate 9-4 using button clicks.
+---
+Expected: Result should be 5
+Difficulty: ★★★☆☆
+
+Task 4D: Decimal Calculation
+---
+Open Calculator. Calculate 3.5 + 2.5 by clicking the buttons including the decimal point.
+---
+Expected: Result should be 6
+Difficulty: ★★★☆☆
+
+================================
+CATEGORY 5: WEB BROWSER (if Safari available)
+================================
+
+Task 5A: Open Browser
+---
+Open Safari browser. Press Cmd+L to focus the address bar. Type "apple.com" and press Enter.
+---
+Expected: Apple website loads
+Difficulty: ★★★☆☆
+
+Task 5B: New Tab
+---
+Open Safari. Press Cmd+T to open a new tab. Type "google.com" in the address bar and press Enter.
+---
+Expected: Google homepage opens in new tab
+Difficulty: ★★★☆☆
+
+Task 5C: Search
+---
+Open Safari. Press Cmd+L to focus address bar. Type "weather San Francisco" and press Enter.
+---
+Expected: Search results for SF weather
+Difficulty: ★★★☆☆
+
+================================
+CATEGORY 6: SYSTEM PREFERENCES
+================================
+
+Task 6A: Open System Settings
+---
+Open spotlight search. Type "System Settings" or "System Preferences". Press Enter to open it.
+---
+Expected: System Settings/Preferences opens
+Difficulty: ★★☆☆☆
+
+Task 6B: Sound Settings
+---
+Open System Settings. Search for "Sound" in the settings. Click on Sound settings.
+---
+Expected: Sound preferences panel opens
+Difficulty: ★★★☆☆
+
+Task 6C: Display Brightness (View Only)
+---
+Open System Settings. Navigate to Displays. Just view the current brightness setting. Do not change anything.
+---
+Expected: Display settings visible
+Difficulty: ★★★☆☆
+
+================================
+CATEGORY 7: MULTI-APPLICATION WORKFLOWS
+================================
+
+Task 7A: App Switching
+---
+Open Calculator. Then open Notes. Use Cmd+Tab to switch back to Calculator. Take a screenshot with Cmd+Shift+3.
+---
+Expected: Both apps open, screenshot taken
+Difficulty: ★★★★☆
+
+Task 7B: Copy from Calculator
+---
+Open Calculator. Calculate 12+34. Click on the result to select it. Copy it with Cmd+C. Open Notes. Paste the result.
+---
+Expected: "46" appears in Notes
+Difficulty: ★★★★☆
+
+Task 7C: Terminal Command with Output
+---
+Open Terminal. Type "date" and press Enter to see the current date. Then type "whoami" and press Enter to see username.
+---
+Expected: Both commands execute successfully
+Difficulty: ★★★☆☆
+
+Task 7D: Terminal Directory Navigation
+---
+Open Terminal. Type "cd Desktop" and press Enter. Then type "pwd" and press Enter to print working directory.
+---
+Expected: Shows path to Desktop
+Difficulty: ★★★☆☆
+
+================================
+CATEGORY 8: PRECISION CLICKING TESTS
+================================
+
+Task 8A: Menu Bar Click
+---
+Click on the Apple logo in the top-left corner of the screen. Then press Escape to close the menu.
+---
+Expected: Apple menu opens and closes
+Difficulty: ★★★★☆
+
+Task 8B: Dock Click
+---
+Click on the Launchpad icon in the dock (the rocket icon). Then press Escape to close Launchpad.
+---
+Expected: Launchpad opens showing all apps
+Difficulty: ★★★☆☆
+
+Task 8C: Window Close Button
+---
+Open Calculator. Click the red close button in the top-left corner of the Calculator window to close it.
+---
+Expected: Calculator window closes
+Difficulty: ★★★★☆
+
+================================
+CATEGORY 9: REASONING & RECOVERY TESTS
+================================
+
+Task 9A: Intentional Mistake Recovery
+---
+Open spotlight. Type "wrong_app_name_12345". Notice that no results appear. Clear the text. Type "Calculator" and open it.
+---
+Expected: Should recognize mistake and recover
+Difficulty: ★★★★☆
+
+Task 9B: Window Management
+---
+Open Notes and Calculator at the same time. If one window is behind the other, bring both to the front so both are visible.
+---
+Expected: Both windows visible
+Difficulty: ★★★★☆
+
+Task 9C: Menu Navigation
+---
+Open Calculator. Click on the "View" menu in the menu bar. Look at the options. Press Escape to close the menu without selecting anything.
+---
+Expected: View menu opens and closes
+Difficulty: ★★★★☆
+
+================================
+CATEGORY 10: COMPLEX TASKS
+================================
+
+Task 10A: Multi-Step Workflow
+---
+Open Terminal. Create a new directory called "test_dir" by typing "mkdir test_dir" and pressing Enter. List the directory contents by typing "ls" and pressing Enter to verify the directory was created.
+---
+Expected: Directory created and visible in ls output
+Difficulty: ★★★★★
+
+Task 10B: Note Organization
+---
+Open Notes. Create a new note. Title it "Shopping List". In the note body, type three items: Milk, Eggs, Bread (each on a new line).
+---
+Expected: Organized note with title and list
+Difficulty: ★★★★☆
+
+Task 10C: Multiple Calculations
+---
+Open Calculator. Calculate and remember these results: 5+5, then 3×4, then 20-8. The final answer should be 12.
+---
+Expected: Correctly handles multiple sequential calculations
+Difficulty: ★★★★★
+
+================================
+EXPERIMENT LOG TEMPLATE
+================================
+
+Date: [Fill in]
+Task: [Task ID and name]
+Result: [✓ Success / ~ Partial / ✗ Failed]
+Observations:
+- 
+- 
+Interesting behaviors:
+- 
+- 
+Time taken: [X iterations]
+Screenshots: [log file path]
+
+================================
+NOTES FOR EXPERIMENTERS
+================================
+
+Things to watch for:
+1. Does Claude use keyboard shortcuts vs clicking?
+2. How does it recover from mistakes?
+3. Does it verify actions with screenshots?
+4. Which coordinate clicks are successful?
+5. Does it get stuck in loops?
+6. How well does it reason about application state?
+
+Success patterns:
+- Keyboard shortcuts work better than clicking small buttons
+- Claude is good at self-correction
+- Text input is very reliable
+- Menu bar clicking is challenging
+
+Failure patterns:
+- Small buttons in calculator are difficult
+- Multiple windows can confuse state
+- Precise clicking on UI elements
+- Dragging operations
+
+Recommended testing order:
+1. Start with Category 1 (keyboard shortcuts)
+2. Move to Category 3 (text editing)
+3. Try Category 7 (multi-app workflows)
+4. Test Category 4 (calculator) to see improvements
+5. Challenge with Category 10 (complex tasks)
+

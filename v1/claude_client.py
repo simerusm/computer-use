@@ -56,10 +56,11 @@ class ClaudeComputerClient:
             }
         ]
         
-        # Debug: Print tool configuration
-        print(f"[ClaudeClient] Tool configuration:")
+        # Debug: Print tool configuration (CRITICAL for coordinate debugging)
+        print(f"\n[ClaudeClient] Tool configuration sent to Claude:")
         print(f"  display_width_px: {self.tools[0]['display_width_px']}")
         print(f"  display_height_px: {self.tools[0]['display_height_px']}")
+        print(f"  ⚠️  Claude MUST return coordinates within 0-{self.tools[0]['display_width_px']} x 0-{self.tools[0]['display_height_px']}")
     
     def update_screen_size(self, width: int, height: int):
         """Update the screen dimensions for the computer tool"""
